@@ -1,0 +1,41 @@
+services:
+  feature_manager:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+      args:
+        WORKSPACE: ${WORKSPACE:-/workspace}
+
+    container_name: feature_manager
+    user: ros
+    network_mode: host
+    privileged: true
+    ipc: host
+
+    cap_add:
+      - SYS_PTRACE
+
+    security_opt:
+      - seccomp:unconfined
+      - apparmor:unconfined
+
+    environment:
+      DISPLAY: ${DISPLAY}
+      WAYLAND_DISPLAY: ${WAYLAND_DISPLAY}
+      XDG_RUNTIME_DIR: ${XDG_RUNTIME_DIR}
+      PULSE_SERVER: ${PULSE_SERVER}
+      LIBGL_ALWAYS_SOFTWARE: "1"
+      WORKSPACE_ROOT: /home/labor/workspaces/
+
+    volumes:
+      - /dev/input:/dev/input
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - /mnt/wslg:/mnt/wslg
+      - ../:/workspace:cached
+      # Mount the Docker socket to allow the container to control Docker on the host
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Mount the workspace directory from the host to the container to start docker compose files directly from the host folder for the context
+      - ${WORKSPACE_ROOT}:${WORKSPACE_ROOT}
+
+    command: bash /workspace/entrypoint.sh
+    restart: always
