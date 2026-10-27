@@ -1,3 +1,29 @@
+# Feature Manager
+
+Monitors the robot's feature containers (navigation, motor_control, rplidar, ...) and starts,
+stops and restarts them, with selectable options, from a web UI and over ROS topics.
+
+* **Web UI:** `http://<robot-ip>:8080`, with one card per container showing state, uptime, CPU/RAM,
+  restarts, the options it runs with, and a live log tail.
+* **ROS:** status as JSON on `/feature_manager/status`; commands on `/feature_manager/cmd`, e.g.
+  `ros2 topic pub --once /feature_manager/cmd std_msgs/String "data: 'start navigation USE_NVBLOX=false'"`
+* **Boot:** features with `autostart: true` are started once per boot of the robot.
+
+Start it with `cd .devcontainer && docker compose up -d --build`. The container rebuilds the package on
+every start and reads the config and web UI from the source tree, so edits only need
+`docker restart feature_manager`.
+
+## Adding a feature or an option
+
+All features are listed in [`src/feature_manager/config/features.yml`](src/feature_manager/config/features.yml).
+An option is an environment variable that is passed to `docker compose up`. For a new option:
+
+1. Forward it in the feature's `docker-compose.yml`: `USE_FOO: ${USE_FOO:-true}`
+2. Hand it to the launch file in the feature's `entrypoint.sh`: `use_foo:="${USE_FOO}"`
+3. Describe it under the feature's `options:` in `features.yml` (type `bool` or `choice`).
+
+---
+
 # VSCode ROS2 Workspace Template
 
 This template will get you set up using ROS2 with VSCode as your IDE.

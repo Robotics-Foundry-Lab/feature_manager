@@ -2,6 +2,7 @@
 {
 	"dockerFile": "Dockerfile",
 	"build": {
+		"context": "..",
 		"args": {
 			"WORKSPACE": "${containerWorkspaceFolder}"
 		}

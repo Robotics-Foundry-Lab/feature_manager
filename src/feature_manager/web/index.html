@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Feature Manager</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='6' fill='%2334c47c'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <h1>Feature Manager</h1>
+      <span id="summary" class="summary">loading…</span>
+    </div>
+    <div id="connection" class="connection" data-state="connecting">
+      <span class="dot"></span><span class="label">connecting</span>
+    </div>
+  </header>
+
+  <main id="features" class="grid" aria-live="polite"></main>
+
+  <template id="card-template">
+    <article class="card">
+      <header class="card-head">
+        <div class="title">
+          <h2 class="name"></h2>
+          <p class="description"></p>
+        </div>
+        <span class="pill" data-tone="idle">–</span>
+      </header>
+
+      <dl class="metrics">
+        <div><dt class="m-uptime-label">Uptime</dt><dd class="m-uptime">–</dd></div>
+        <div><dt>CPU</dt><dd class="m-cpu">–</dd></div>
+        <div><dt>Memory</dt><dd class="m-mem">–</dd></div>
+        <div><dt>Restarts</dt><dd class="m-restarts">–</dd></div>
+      </dl>
+
+      <div class="hints"></div>
+
+      <section class="options" hidden>
+        <div class="options-head">
+          <h3>Options</h3>
+          <button type="button" class="link reset" hidden>Reset</button>
+        </div>
+        <div class="option-list"></div>
+      </section>
+
+      <div class="error" hidden>
+        <strong>Last action failed</strong>
+        <pre></pre>
+      </div>
+
+      <footer class="actions">
+        <button type="button" class="btn primary" data-action="start">Start</button>
+        <button type="button" class="btn primary" data-action="apply" hidden>Apply &amp; restart</button>
+        <button type="button" class="btn" data-action="restart">Restart</button>
+        <button type="button" class="btn danger" data-action="stop">Stop</button>
+      </footer>
+
+      <details class="logs">
+        <summary>Logs <span class="log-state"></span></summary>
+        <pre class="log-view" tabindex="0"></pre>
+      </details>
+    </article>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>

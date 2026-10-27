@@ -1,0 +1,131 @@
+# Feature registry of the robot.
+#
+# Every entry is one docker compose service in <workspace_root>/<folder>/.devcontainer.
+#   container:  container_name from the compose file (used for monitoring)
+#   service:    compose service name, defaults to `container`
+#   autostart:  started once after every boot of the robot
+#   requires:   features that should run as well (only shown as a hint in the UI)
+#   options:    environment variables passed to `docker compose up`. The compose file has to
+#               forward them, e.g. `USE_VSLAM: ${USE_VSLAM:-true}`, and the entrypoint.sh has to
+#               hand them to the launch file.
+#     type bool:   on/off switch, passed as true/false
+#     type choice: dropdown; a choice can carry `warn_if_running: [feature, ...]`
+
+workspace_root: ${WORKSPACE_ROOT:-/home/labor/workspaces/ros_ws}
+
+features:
+  motor_control:
+    display_name: Motor Control
+    description: >
+      Drives the wheel motors over the serial adapter (/dev/ttyACM0) and publishes the wheel
+      odometry (/odom_wheel).
+    folder: motor_control
+    container: motor-control
+    autostart: true
+
+  rplidar:
+    display_name: RPLIDAR C1
+    description: 2D laser scanner on /dev/ttyUSB0, publishes /scan for SLAM and Nav2.
+    folder: rplidar
+    container: rplidar
+    autostart: true
+
+  transformations:
+    display_name: Robot Model (TF)
+    description: Publishes the URDF and the static transforms between the robot's sensors.
+    folder: transformations
+    container: transformations
+    autostart: true
+
+  joy_to_twist:
+    display_name: Gamepad Teleop
+    description: Reads the PS4/PS5 controller and turns the stick input into /cmd_vel.
+    folder: joy_to_twist
+    container: joy_to_twist
+    autostart: true
+
+  navigation:
+    display_name: Navigation
+    description: >
+      RealSense camera, EKF localization and visualization, plus the perception and planning
+      stack selected below.
+    folder: navigation
+    container: navigation
+    requires: [motor_control, rplidar, transformations]
+    options:
+      USE_VSLAM:
+        label: Visual SLAM (cuVSLAM)
+        type: bool
+        default: true
+        description: >
+          GPU-accelerated visual odometry from the RealSense images. Its odometry
+          (/visual_slam/tracking/odometry) is fused in the EKF together with the wheel odometry
+          and the camera gyro, which keeps the localization steady when the wheels slip.
+          Turn it off to save GPU load or in surroundings with little texture
+          (blank walls, darkness).
+      USE_NVBLOX:
+        label: 3D Mapping (NVBLOX)
+        type: bool
+        default: true
+        description: >
+          Builds a live 3D reconstruction from the depth camera and adds it as a costmap layer
+          to Nav2, so obstacles the 2D lidar can't see (table tops, overhangs, low objects) are
+          avoided. Biggest GPU consumer. Only used for planning when Lidar SLAM + Nav2 is on.
+      USE_NAVIGATION:
+        label: Lidar SLAM + Nav2
+        type: bool
+        default: true
+        description: >
+          slam_toolbox builds the 2D map from /scan, and Nav2 plans paths and drives to goals.
+          Required by Frontier Exploration. Turn it off to use the container for perception only.
+
+  frontier_exploration:
+    display_name: Frontier Exploration
+    description: >
+      Drives autonomously to the unexplored borders of the map until the map is complete.
+      Needs Navigation with Lidar SLAM + Nav2.
+    folder: frontier_exploration
+    container: frontier_exploration
+    requires: [navigation]
+
+  object_detection:
+    display_name: Object Detection
+    description: >
+      YOLOv8 object detection accelerated by TensorRT, with the annotated image on
+      /yolov8_processed_image.
+    folder: object_detection
+    container: object_detection
+    options:
+      YOLO_MODEL:
+        label: Model
+        type: choice
+        default: yolov8n
+        description: Bigger models detect more reliably but need more GPU time per image.
+        choices:
+          yolov8n: Nano - fastest, least accurate. Best when the GPU is shared with NVBLOX and VSLAM.
+          yolov8s: Small - good balance of speed and accuracy.
+          yolov8m: >
+            Medium - more accurate, noticeably slower. The first start downloads the model and
+            builds the TensorRT engine, which takes several minutes.
+      RUN_MODE:
+        label: Camera source
+        type: choice
+        default: standalone
+        description: Where the camera images come from.
+        choices:
+          standalone:
+            description: Opens the RealSense itself. Use it when Navigation is not running.
+            warn_if_running: [navigation]
+          composite: >
+            Uses the camera stream of the Navigation container. Use it when Navigation is running,
+            because only one process can open the camera.
+          bag: Replays the NVIDIA quickstart rosbag, for testing without a camera.
+      VIS_MODE:
+        label: Visualization
+        type: choice
+        default: sparse
+        description: Which detections are drawn into /yolov8_processed_image.
+        choices:
+          sparse: Only person, dog and potted plant.
+          full: All 80 COCO classes.
+          none: No annotated image; saves CPU and bandwidth.

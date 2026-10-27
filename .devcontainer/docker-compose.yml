@@ -11,6 +11,7 @@ services:
     network_mode: host
     privileged: true
     ipc: host
+    init: true # forwards docker stop to the feature manager
 
     cap_add:
       - SYS_PTRACE
@@ -25,7 +26,9 @@ services:
       XDG_RUNTIME_DIR: ${XDG_RUNTIME_DIR}
       PULSE_SERVER: ${PULSE_SERVER}
       LIBGL_ALWAYS_SOFTWARE: "1"
-      WORKSPACE_ROOT: /home/labor/workspaces/
+      # Folder that contains all feature repositories. It is mounted at the same path below,
+      # because the host docker daemon resolves the features' relative volume paths against it.
+      WORKSPACE_ROOT: ${WORKSPACE_ROOT:-/home/labor/workspaces/ros_ws}
 
     volumes:
       - /dev/input:/dev/input
@@ -35,7 +38,8 @@ services:
       # Mount the Docker socket to allow the container to control Docker on the host
       - /var/run/docker.sock:/var/run/docker.sock
       # Mount the workspace directory from the host to the container to start docker compose files directly from the host folder for the context
-      - ${WORKSPACE_ROOT}:${WORKSPACE_ROOT}
+      - ${WORKSPACE_ROOT:-/home/labor/workspaces/ros_ws}:${WORKSPACE_ROOT:-/home/labor/workspaces/ros_ws}
 
     command: bash /workspace/entrypoint.sh
+    # Web UI: http://<robot-ip>:8080 (host network)
     restart: always
