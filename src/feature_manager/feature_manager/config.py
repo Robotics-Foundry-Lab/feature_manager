@@ -109,6 +109,7 @@ class Feature:
 class Config:
     workspace_root: Path
     features: Dict[str, Feature]
+    viewer: Dict[str, Any] = field(default_factory=dict)  # settings of the 3D map tab
 
     def find(self, name: str) -> Optional[Feature]:
         """Look a feature up by id or container name."""
@@ -162,4 +163,5 @@ def load_config(path: Path) -> Config:
             requires=list(info.get('requires') or []),
             options=[_parse_option(k, v or {}) for k, v in (info.get('options') or {}).items()],
         )
-    return Config(workspace_root=workspace_root, features=features)
+    return Config(workspace_root=workspace_root, features=features,
+                  viewer=dict(raw.get('viewer') or {}))

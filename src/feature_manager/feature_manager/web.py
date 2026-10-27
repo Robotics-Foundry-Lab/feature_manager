@@ -38,6 +38,7 @@ def create_app(controller: FeatureController, web_dir: Path) -> FastAPI:
         return {
             'features': [f.to_dict() for f in controller.config.features.values()],
             'status': controller.snapshot(),
+            'viewer': controller.config.viewer,
         }
 
     @app.get('/api/status')

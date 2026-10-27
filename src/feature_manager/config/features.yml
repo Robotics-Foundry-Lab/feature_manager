@@ -13,6 +13,14 @@
 
 workspace_root: ${WORKSPACE_ROOT:-/home/labor/workspaces/ros_ws}
 
+# "3D Map" tab of the web UI. The browser connects directly to the foxglove_bridge of the
+# Navigation container ({host} = the address the web UI was opened with).
+viewer:
+  feature: navigation
+  bridge_url: ws://{host}:8765
+  fixed_frame: map
+  robot_frame: base_link
+
 features:
   motor_control:
     display_name: Motor Control

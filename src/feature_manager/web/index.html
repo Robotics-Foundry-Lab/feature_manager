@@ -6,6 +6,7 @@
   <title>Feature Manager</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='6' fill='%2334c47c'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="style.css">
+  <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
 </head>
 <body>
   <header class="topbar">
@@ -13,12 +14,68 @@
       <h1>Feature Manager</h1>
       <span id="summary" class="summary">loading…</span>
     </div>
+    <nav class="tabs" role="tablist">
+      <a href="#features" role="tab" data-tab="features">Features</a>
+      <a href="#map" role="tab" data-tab="map">3D Map</a>
+    </nav>
     <div id="connection" class="connection" data-state="connecting">
       <span class="dot"></span><span class="label">connecting</span>
     </div>
   </header>
 
   <main id="features" class="grid" aria-live="polite"></main>
+
+  <section id="view-map" class="map-view" hidden>
+    <div class="map-canvas"></div>
+    <div class="map-overlay" hidden>
+      <div class="map-overlay-card">
+        <strong></strong>
+        <p></p>
+        <div class="webgl-help" hidden>
+          <p>The 3D map is drawn by your browser's graphics hardware. To turn it on:</p>
+          <ul>
+            <li><b>Chrome / Edge:</b> Settings → System → turn on “Use graphics acceleration when
+              available”, then restart the browser. <code>chrome://gpu</code> should list WebGL as
+              available.</li>
+            <li><b>Firefox:</b> in <code>about:config</code> set <code>webgl.disabled</code> to
+              false. <code>about:support</code> shows the WebGL status.</li>
+            <li><b>Inside VSCode or a remote desktop:</b> open the page in a normal browser instead;
+              those usually run without GPU.</li>
+          </ul>
+          <p>Test page: <a href="https://get.webgl.org" target="_blank" rel="noopener">get.webgl.org</a></p>
+          <button type="button" class="btn" onclick="window.location.reload()">Try again</button>
+        </div>
+        <a class="btn primary" href="#features">Open Features</a>
+      </div>
+    </div>
+    <aside class="map-panel" data-open="true">
+      <header class="map-panel-head">
+        <h2>Layers</h2>
+        <span class="bridge-state"></span>
+        <button type="button" class="link panel-toggle">Hide</button>
+      </header>
+      <div class="map-panel-body">
+        <div class="layer-list"></div>
+        <div class="map-settings">
+          <label>Fixed frame <select class="fixed-frame"></select></label>
+          <label>Voxels as
+            <select class="render-mode">
+              <option value="cubes">Cubes</option>
+              <option value="points">Points (faster)</option>
+            </select>
+          </label>
+          <label>Keep voxel blocks <select class="lifetime"></select></label>
+          <label class="check"><input type="checkbox" class="follow"> Follow robot</label>
+        </div>
+        <div class="view-buttons">
+          <button type="button" class="btn" data-view="reset">Reset view</button>
+          <button type="button" class="btn" data-view="top">Top-down</button>
+        </div>
+        <p class="map-stats"></p>
+        <label class="bridge">Bridge <input class="bridge-url" type="text" spellcheck="false"></label>
+      </div>
+    </aside>
+  </section>
 
   <template id="card-template">
     <article class="card">
@@ -57,6 +114,7 @@
         <button type="button" class="btn primary" data-action="apply" hidden>Apply &amp; restart</button>
         <button type="button" class="btn" data-action="restart">Restart</button>
         <button type="button" class="btn danger" data-action="stop">Stop</button>
+        <a class="btn map-link" href="#map" hidden>3D Map</a>
       </footer>
 
       <details class="logs">

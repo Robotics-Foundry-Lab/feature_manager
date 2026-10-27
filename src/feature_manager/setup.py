@@ -1,4 +1,5 @@
 from glob import glob
+import os
 
 from setuptools import find_packages, setup
 
@@ -13,7 +14,9 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name + '/config', glob('config/*.yml')),
-        ('share/' + package_name + '/web', glob('web/*')),
+        ('share/' + package_name + '/web', [f for f in glob('web/*') if os.path.isfile(f)]),
+        ('share/' + package_name + '/web/vendor', glob('web/vendor/*')),
+        ('share/' + package_name + '/web/viewer', glob('web/viewer/*')),
     ],
     install_requires=['setuptools', 'PyYAML', 'docker', 'fastapi', 'uvicorn'],
     zip_safe=True,

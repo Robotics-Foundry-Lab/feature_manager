@@ -12,7 +12,10 @@ const state = {
   drafts: {},            // feature id -> {option key: value} edited but not applied
   cards: {},             // feature id -> card elements
   logs: {},              // feature id -> {source, startedAt}
+  viewerConfig: {},      // `viewer` section of features.yml
 };
+
+let viewer = null;       // MapViewer, loaded on first visit of the 3D tab
 
 const $ = (root, sel) => root.querySelector(sel);
 
@@ -164,6 +167,7 @@ function buildCard(feature) {
   card.logs = logs;
   card.buttons = Object.fromEntries(
     [...node.querySelectorAll('[data-action]')].map((b) => [b.dataset.action, b]));
+  $(node, '.map-link').hidden = feature.id !== (state.viewerConfig.feature || 'navigation');
   state.cards[feature.id] = card;
   return node;
 }
@@ -264,6 +268,7 @@ function applySnapshot(snapshot) {
   if (snapshot.timestamp) state.clockOffset = snapshot.timestamp - Date.now() / 1000;
   for (const f of state.features) updateCard(f);
   updateSummary();
+  if (viewer && viewer.running) viewer.updateOverlay();
 }
 
 // ---------------------------------------------------------------- actions
@@ -377,17 +382,65 @@ function connectEvents() {
   source.onerror = () => setConnection('offline');
 }
 
+// ---------------------------------------------------------------- tabs
+
+async function route() {
+  const tab = window.location.hash === '#map' ? 'map' : 'features';
+  document.body.dataset.tab = tab;
+  document.getElementById('features').hidden = tab !== 'features';
+  const mapView = document.getElementById('view-map');
+  mapView.hidden = tab !== 'map';
+  for (const link of document.querySelectorAll('[data-tab]')) {
+    link.setAttribute('aria-selected', String(link.dataset.tab === tab));
+  }
+  if (tab !== 'map') {
+    if (viewer) viewer.stop();
+    return;
+  }
+  try {
+    if (!viewer) {
+      const { MapViewer } = await import('./viewer/viewer.js');
+      const cfg = state.viewerConfig;
+      viewer = new MapViewer(mapView, {
+        bridgeUrl: cfg.bridge_url,
+        fixedFrame: cfg.fixed_frame,
+        robotFrame: cfg.robot_frame,
+        navigationRunning: () => Boolean((state.status[cfg.feature || 'navigation'] || {}).running),
+      });
+    }
+    if (window.location.hash === '#map') viewer.start();
+  } catch (err) {
+    console.error(err);
+    const overlay = $(mapView, '.map-overlay');
+    overlay.hidden = false;
+    $(mapView, '.map-panel').hidden = true;
+    $(overlay, 'strong').textContent = 'The 3D view could not start';
+    $(overlay, 'p').textContent = String(err.message || err);
+    $(overlay, '.webgl-help').hidden = err.code !== 'webgl';
+  }
+}
+
+function trackTopbarHeight() {
+  const bar = document.querySelector('.topbar');
+  const update = () => document.documentElement.style.setProperty('--topbar-h', `${bar.offsetHeight}px`);
+  new ResizeObserver(update).observe(bar);
+  update();
+}
+
 async function init() {
   try {
     const res = await fetch('api/features');
     const data = await res.json();
     state.features = data.features;
     state.byId = Object.fromEntries(data.features.map((f) => [f.id, f]));
+    state.viewerConfig = data.viewer || {};
     const grid = document.getElementById('features');
     grid.replaceChildren(...data.features.map(buildCard));
     applySnapshot(data.status);
     connectEvents();
     setInterval(() => state.features.forEach(updateUptime), 1000);
+    window.addEventListener('hashchange', route);
+    route();
   } catch (err) {
     setConnection('offline');
     document.getElementById('summary').textContent = `Could not load features: ${err.message}`;
@@ -395,4 +448,5 @@ async function init() {
   }
 }
 
+trackTopbarHeight();
 init();
