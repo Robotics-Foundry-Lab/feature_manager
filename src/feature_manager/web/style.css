@@ -346,6 +346,11 @@ a.btn { text-decoration: none; display: inline-block; }
 .map-settings label.check input { margin: 0; accent-color: var(--accent); }
 .view-buttons { display: flex; gap: 8px; }
 .view-buttons .btn { flex: 1; padding: 6px 10px; font-size: 13px; }
+.map-reset { display: flex; flex-direction: column; gap: 6px; }
+.map-reset .btn { padding: 6px 10px; font-size: 13px; }
+.reset-map-info { color: var(--muted); font-size: 12px; }
+.reset-map-info:empty { display: none; }
+.reset-map-info[data-tone="bad"] { color: var(--bad); }
 .map-stats { color: var(--muted); font-size: 12px; }
 .map-stats:empty { display: none; }
 .bridge { display: flex; flex-direction: column; gap: 4px; color: var(--muted); font-size: 12px; }

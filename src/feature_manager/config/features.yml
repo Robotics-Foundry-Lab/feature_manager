@@ -20,6 +20,9 @@ viewer:
   bridge_url: ws://{host}:8765
   fixed_frame: map
   robot_frame: base_link
+  # "Reset 2D map" ends this process in the feature's container; its launch file respawns it with
+  # an empty map (slam_toolbox in Humble has no reset service)
+  slam_process: async_slam_toolbox_node
 
 features:
   motor_control:

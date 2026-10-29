@@ -65,6 +65,7 @@ export class GoalTool {
     this.el = {
       bar: $('.goal-bar'), status: $('.goal-status'), start: $('.goal-start'),
       send: $('.goal-send'), discard: $('.goal-discard'), stop: $('.goal-stop'),
+      reset: $('.map-reset'), resetButton: $('.reset-map'), resetInfo: $('.reset-map-info'),
     };
     this.canvas = viewer.renderer.domElement;
     this.area = viewer.el.canvas;
@@ -93,6 +94,7 @@ export class GoalTool {
     this.el.discard.addEventListener('click', () => this.setMode('idle'));
     this.el.send.addEventListener('click', () => this.sendGoal());
     this.el.stop.addEventListener('click', () => this.stopNavigation());
+    this.el.resetButton.addEventListener('click', () => this.resetMap());
     this.render();
   }
 
@@ -227,6 +229,27 @@ export class GoalTool {
     }
   }
 
+  async resetMap() {
+    const ok = confirm('Reset the 2D map?\n\nThe robot forgets the occupancy map built so far and '
+      + 'starts a new one from where it stands now. A running navigation goal is stopped.');
+    if (!ok) return;
+    const { resetButton, resetInfo } = this.el;
+    resetButton.disabled = true;
+    clearTimeout(this.resetInfoTimer);
+    resetInfo.dataset.tone = '';
+    resetInfo.textContent = 'Resetting…';
+    try {
+      await post('api/navigation/reset_map');
+      resetInfo.textContent = 'Map reset. The new map appears in a few seconds.';
+    } catch (err) {
+      resetInfo.dataset.tone = 'bad';
+      resetInfo.textContent = `Reset failed: ${err.message}`;
+    } finally {
+      resetButton.disabled = false;
+      this.resetInfoTimer = setTimeout(() => { resetInfo.textContent = ''; }, 10000);
+    }
+  }
+
   // ------------------------------------------------------------ view
 
   statusText() {
@@ -251,6 +274,7 @@ export class GoalTool {
     const { bar, status, start, send, discard, stop } = this.el;
     const nav = this.nav;
     bar.hidden = !nav; // the feature manager runs without ROS
+    this.el.reset.hidden = !nav;
     if (!nav) return;
     const picking = this.mode !== 'idle';
     start.hidden = picking;

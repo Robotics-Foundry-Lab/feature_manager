@@ -272,6 +272,24 @@ class FeatureController:
             lock.release()
             self._refresh_now.set()
 
+    def kill_process(self, feature_id: str, pattern: str) -> int:
+        """End the processes matching `pattern` (pkill -f) in the feature's container.
+
+        Returns how many processes were ended.
+        """
+        feature = self.config.find(feature_id)
+        if feature is None:
+            raise KeyError(f'Unknown feature: {feature_id}')
+        container = self._container(feature)
+        if container is None or container.status != 'running':
+            raise RuntimeError(f'{feature.display_name} is not running')
+        code, output = container.exec_run(['pkill', '-e', '-f', pattern], user='root')
+        text = output.decode('utf-8', errors='replace').strip()
+        if code > 1:  # 1 = nothing matched
+            raise RuntimeError(text or f'pkill failed with exit code {code}')
+        LOG.info('%s: ended %r: %s', feature.id, pattern, text or 'no process')
+        return len(text.splitlines()) if code == 0 else 0
+
     # ------------------------------------------------------------------ logs
 
     def logs(self, feature_id: str, tail: int = 200) -> List[str]:

@@ -22,6 +22,7 @@ from rclpy.node import Node
 
 try:
     from nav2_msgs.action import NavigateToPose
+    from nav2_msgs.srv import ClearEntireCostmap
     from rclpy.action import ActionClient
 except ImportError:
     NavigateToPose = None
@@ -36,6 +37,7 @@ RESULTS = {
                                 'Nav2 gave up: no path to the goal or the robot got stuck.'),
 }
 ACTIVE = ('sending', 'active', 'sent')
+COSTMAPS = ('global_costmap', 'local_costmap')
 
 
 def _seconds(duration) -> float:
@@ -66,6 +68,9 @@ class NavGoalClient:
 
         if self.mode == 'action':
             self._client = ActionClient(node, NavigateToPose, action)
+            self._clear_costmaps = [
+                node.create_client(ClearEntireCostmap, f'{name}/clear_entirely_{name}')
+                for name in COSTMAPS]
         else:
             LOG.warning('nav2_msgs not installed: goals go to /%s without progress', topic)
             self._pub = node.create_publisher(PoseStamped, topic, 10)
@@ -187,6 +192,20 @@ class NavGoalClient:
         self._update(seq, message='Stopping…')
         self._call_soon(lambda: self._cancel.call_async(CancelGoal.Request())
                         .add_done_callback(done))
+
+    def clear_costmaps(self) -> None:
+        """Empty Nav2's global and local costmap (after the map was reset)."""
+        if self.mode != 'action':
+            LOG.warning('Clearing the costmaps needs nav2_msgs')
+            return
+
+        def clear():
+            for client in self._clear_costmaps:
+                if client.service_is_ready():
+                    client.call_async(ClearEntireCostmap.Request())
+                else:
+                    LOG.warning('%s is not available', client.srv_name)
+        self._call_soon(clear)
 
     def _on_response(self, seq, future):
         try:

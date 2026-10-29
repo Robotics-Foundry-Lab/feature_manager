@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from .controller import FeatureController
+from .nav_goal import ACTIVE
 
 LOG = logging.getLogger('feature_manager.web')
 
@@ -106,6 +107,27 @@ def create_app(controller: FeatureController, web_dir: Path, nav=None) -> FastAP
             nav_or_503().cancel()
         except RuntimeError as exc:
             raise HTTPException(409, str(exc))
+        return {'ok': True}
+
+    @app.post('/api/navigation/reset_map', status_code=202)
+    def navigation_reset_map():
+        viewer = controller.config.viewer
+        process = viewer.get('slam_process')
+        if not process:
+            raise HTTPException(501, 'No slam_process in the viewer section of features.yml')
+        # Never drive on a map that is being replaced
+        if nav and nav.snapshot()['status'] in ACTIVE:
+            nav.cancel()
+        try:
+            ended = controller.kill_process(viewer.get('feature', 'navigation'), process)
+        except (KeyError, RuntimeError) as exc:
+            raise HTTPException(409, str(exc))
+        if not ended:
+            raise HTTPException(409, 'SLAM is not running. Turn on Lidar SLAM + Nav2.')
+        if nav:
+            # Old obstacles go now; once more after the respawned SLAM published its first map
+            nav.clear_costmaps()
+            threading.Timer(5.0, nav.clear_costmaps).start()
         return {'ok': True}
 
     @app.get('/api/events')
