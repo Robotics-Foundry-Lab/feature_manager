@@ -1,10 +1,11 @@
 // 3D map view: renders nvblox voxel layers, the 2D map, costmaps, paths and the robot from the
 // foxglove_bridge of the Navigation container. Rendering happens in the browser; the robot only
-// streams the topics that are switched on.
+// streams the topics that are switched on. Navigation goals are set in goal.js.
 
 import * as THREE from 'three';
 import { OrbitControls } from '../vendor/OrbitControls.js';
 import { FoxgloveClient } from './foxglove.js';
+import { GoalTool } from './goal.js';
 import { toFloat32 } from './ros2msg.js';
 
 const SETTINGS_KEY = 'feature-manager.viewer';
@@ -552,6 +553,12 @@ export class MapViewer {
     this.world.add(this.robot);
 
     this.buildPanel();
+    try {
+      this.goal = new GoalTool(this);
+    } catch (err) {
+      // The map must still work without goals (e.g. a cached index.html without the goal bar)
+      console.error('Navigation goals unavailable:', err);
+    }
     this.client = new FoxgloveClient(this.bridgeUrl());
     this.client.addEventListener('state', () => this.updateOverlay());
     this.client.addEventListener('channels', () => this.syncLayers());
@@ -846,9 +853,14 @@ export class MapViewer {
       this.robotPos = pos;
     }
 
+    if (this.goal) this.goal.update(fixed);
     this.controls.update();
     this.renderer.render(this.scene, this.camera);
   };
+
+  setNavigation(nav) {
+    if (this.goal) this.goal.setNavigation(nav);
+  }
 
   // ------------------------------------------------------------ lifecycle
 
@@ -867,6 +879,7 @@ export class MapViewer {
   stop() {
     this.running = false;
     cancelAnimationFrame(this.raf);
+    if (this.goal) this.goal.cancelDrag();
     if (this.client) {
       this.client.close();
       for (const layer of this.layers) layer.topic = null;

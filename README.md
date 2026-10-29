@@ -8,6 +8,10 @@ stops and restarts them, with selectable options, from a web UI and over ROS top
 * **ROS:** status as JSON on `/feature_manager/status`; commands on `/feature_manager/cmd`, e.g.
   `ros2 topic pub --once /feature_manager/cmd std_msgs/String "data: 'start navigation USE_NVBLOX=false'"`
 * **Boot:** features with `autostart: true` are started once per boot of the robot.
+* **Navigation goals:** in the 3D Map tab, press *Set goal*, then press on the goal and drag towards
+  the heading (mouse or one finger; two fingers still zoom/pan). The feature manager sends it to Nav2
+  as `NavigateToPose` action on `/navigate_to_pose` and shows distance/ETA; *Stop* cancels all Nav2
+  goals. Without `ros-humble-nav2-msgs` in the image the goal goes to `/goal_pose` without progress.
 
 Start it with `cd .devcontainer && docker compose up -d --build`. The container rebuilds the package on
 every start and reads the config and web UI from the source tree, so edits only need

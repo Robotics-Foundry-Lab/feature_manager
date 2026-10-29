@@ -13,6 +13,7 @@ const state = {
   cards: {},             // feature id -> card elements
   logs: {},              // feature id -> {source, startedAt}
   viewerConfig: {},      // `viewer` section of features.yml
+  navigation: null,      // goal state from the feature manager, null without ROS
 };
 
 let viewer = null;       // MapViewer, loaded on first visit of the 3D tab
@@ -378,6 +379,10 @@ function connectEvents() {
     setConnection('online');
     applySnapshot(JSON.parse(ev.data));
   });
+  source.addEventListener('navigation', (ev) => {
+    state.navigation = JSON.parse(ev.data);
+    if (viewer) viewer.setNavigation(state.navigation);
+  });
   source.onopen = () => setConnection('online');
   source.onerror = () => setConnection('offline');
 }
@@ -406,6 +411,7 @@ async function route() {
         fixedFrame: cfg.fixed_frame,
         robotFrame: cfg.robot_frame,
         navigationRunning: () => Boolean((state.status[cfg.feature || 'navigation'] || {}).running),
+        navigation: () => state.navigation,
       });
     }
     if (window.location.hash === '#map') viewer.start();
@@ -434,6 +440,7 @@ async function init() {
     state.features = data.features;
     state.byId = Object.fromEntries(data.features.map((f) => [f.id, f]));
     state.viewerConfig = data.viewer || {};
+    state.navigation = data.navigation;
     const grid = document.getElementById('features');
     grid.replaceChildren(...data.features.map(buildCard));
     applySnapshot(data.status);

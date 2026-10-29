@@ -75,6 +75,15 @@
         <label class="bridge">Bridge <input class="bridge-url" type="text" spellcheck="false"></label>
       </div>
     </aside>
+    <div class="goal-bar" hidden>
+      <p class="goal-status" aria-live="polite"></p>
+      <div class="goal-actions">
+        <button type="button" class="btn primary goal-start">Set goal</button>
+        <button type="button" class="btn primary goal-send" hidden>Send goal</button>
+        <button type="button" class="btn goal-discard" hidden>Cancel</button>
+        <button type="button" class="btn danger goal-stop" hidden>Stop</button>
+      </div>
+    </div>
   </section>
 
   <template id="card-template">

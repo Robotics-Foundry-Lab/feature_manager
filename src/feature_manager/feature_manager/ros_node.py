@@ -6,6 +6,7 @@ from rclpy.node import Node
 from std_msgs.msg import String
 
 from .controller import FeatureController
+from .nav_goal import NavGoalClient
 
 
 def parse_command(text: str):
@@ -40,6 +41,8 @@ class FeatureManagerNode(Node):
         self.create_timer(interval, self.publish_status)
         controller.add_listener(lambda _snapshot: self.publish_status())
         self.get_logger().info('Listening for commands on /feature_manager/cmd')
+        # Navigation goals from the 3D map of the web UI
+        self.nav = NavGoalClient(self)
 
     def publish_status(self):
         snapshot = self.controller.snapshot()

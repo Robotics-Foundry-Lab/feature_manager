@@ -29,6 +29,9 @@ services:
       # Folder that contains all feature repositories. It is mounted at the same path below,
       # because the host docker daemon resolves the features' relative volume paths against it.
       WORKSPACE_ROOT: ${WORKSPACE_ROOT:-/home/labor/workspaces/ros_ws}
+      # Same middleware as Navigation: ROS services and actions (the NavigateToPose goals) do not work
+      # between Fast DDS and CycloneDDS, only plain topics do
+      RMW_IMPLEMENTATION: rmw_cyclonedds_cpp
 
     volumes:
       - /dev/input:/dev/input

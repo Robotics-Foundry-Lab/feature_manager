@@ -358,7 +358,41 @@ a.btn { text-decoration: none; display: inline-block; }
   padding: 5px 7px;
 }
 
+.goal-bar {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  max-width: min(560px, calc(100% - 336px));
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--panel-bg);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--shadow);
+  font-size: 13.5px;
+}
+.goal-status { flex: 1 1 220px; color: var(--muted); }
+.goal-status:empty { display: none; }
+.goal-status[data-tone="draft"] { color: var(--warn); }
+.goal-status[data-tone="active"] { color: var(--text); font-variant-numeric: tabular-nums; }
+.goal-status[data-tone="ok"] { color: var(--ok); }
+.goal-status[data-tone="bad"] { color: var(--bad); }
+.goal-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+.goal-actions .btn { padding: 7px 14px; }
+.map-canvas[data-goal="pick"] canvas { cursor: crosshair; }
+@media (pointer: coarse) {
+  .goal-actions .btn { min-height: 44px; padding: 10px 18px; }
+}
+
 @media (max-width: 640px) {
+  .goal-bar { right: 12px; max-width: none; }
+  .goal-status { flex-basis: 100%; }
+  .goal-actions { flex: 1; flex-wrap: nowrap; }
+  .goal-actions .btn { flex: 1; white-space: nowrap; }
   .topbar { flex-wrap: wrap; gap: 8px 12px; }
   .brand { flex: 1; }
   .tabs { order: 3; width: 100%; }

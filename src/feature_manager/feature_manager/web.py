@@ -10,6 +10,7 @@ import time
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
 from .controller import FeatureController
 
@@ -24,7 +25,24 @@ def _sse(data, event: str = None) -> str:
     return f'{head}data: {json.dumps(data)}\n\n'
 
 
-def create_app(controller: FeatureController, web_dir: Path) -> FastAPI:
+class UncachedStaticFiles(StaticFiles):
+    """Make browsers revalidate (cheap via ETag), so an update never mixes old and new files."""
+
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        response.headers['Cache-Control'] = 'no-cache'
+        return response
+
+
+class Goal(BaseModel):
+    x: float
+    y: float
+    yaw: float = 0.0
+    frame_id: str = 'map'
+
+
+def create_app(controller: FeatureController, web_dir: Path, nav=None) -> FastAPI:
+    """`nav` is the NavGoalClient of the ROS node, None when running without ROS."""
     app = FastAPI(title='Feature Manager', docs_url='/api/docs', redoc_url=None)
 
     def feature_or_404(feature_id: str):
@@ -39,6 +57,7 @@ def create_app(controller: FeatureController, web_dir: Path) -> FastAPI:
             'features': [f.to_dict() for f in controller.config.features.values()],
             'status': controller.snapshot(),
             'viewer': controller.config.viewer,
+            'navigation': nav.snapshot() if nav else None,
         }
 
     @app.get('/api/status')
@@ -62,13 +81,43 @@ def create_app(controller: FeatureController, web_dir: Path) -> FastAPI:
             raise HTTPException(409, str(exc))
         return {'ok': True, 'feature': feature.id, 'action': action}
 
+    def nav_or_503():
+        if nav is None:
+            raise HTTPException(503, 'The feature manager runs without ROS and cannot send goals.')
+        return nav
+
+    @app.get('/api/navigation')
+    def navigation():
+        return nav_or_503().snapshot()
+
+    @app.post('/api/navigation/goal', status_code=202)
+    def navigation_goal(goal: Goal):
+        try:
+            nav_or_503().send(goal.x, goal.y, goal.yaw, goal.frame_id)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc))
+        except RuntimeError as exc:
+            raise HTTPException(409, str(exc))
+        return {'ok': True}
+
+    @app.post('/api/navigation/cancel', status_code=202)
+    def navigation_cancel():
+        try:
+            nav_or_503().cancel()
+        except RuntimeError as exc:
+            raise HTTPException(409, str(exc))
+        return {'ok': True}
+
     @app.get('/api/events')
     async def events(request: Request):
         async def stream():
             yield 'retry: 3000\n\n'
-            last_version, last_sent = None, 0.0
+            last_version, last_nav, last_sent = None, None, 0.0
             while not await request.is_disconnected():
                 now = time.monotonic()
+                if nav and nav.version != last_nav:
+                    last_nav, last_sent = nav.version, now
+                    yield _sse(nav.snapshot(), 'navigation')
                 if controller.version != last_version:
                     last_version, last_sent = controller.version, now
                     yield _sse(controller.snapshot(), 'status')
@@ -133,5 +182,5 @@ def create_app(controller: FeatureController, web_dir: Path) -> FastAPI:
     async def key_error(_request, exc):
         return JSONResponse({'detail': str(exc)}, status_code=404)
 
-    app.mount('/', StaticFiles(directory=str(web_dir), html=True), name='web')
+    app.mount('/', UncachedStaticFiles(directory=str(web_dir), html=True), name='web')
     return app

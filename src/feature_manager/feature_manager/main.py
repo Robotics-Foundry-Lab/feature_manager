@@ -76,10 +76,11 @@ def main(argv=None):
         controller.autostart_once()
 
     ros = None if args.no_ros else _start_ros(controller)
+    nav = ros[1].nav if ros else None
 
     LOG.info('Web UI on http://%s:%d', args.host, args.port)
     try:
-        uvicorn.run(create_app(controller, args.web_dir), host=args.host, port=args.port,
+        uvicorn.run(create_app(controller, args.web_dir, nav), host=args.host, port=args.port,
                     log_level='warning')
     finally:
         controller.shutdown()
