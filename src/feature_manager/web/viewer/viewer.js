@@ -824,7 +824,8 @@ export class MapViewer {
       : `Robot frame: ${robot}${hasRobot ? '' : ' (not in TF yet)'} · ${frames.length} frames`;
     if (!this.firstViewDone && hasRobot) {
       this.firstViewDone = true;
-      this.resetView();
+      if (this.firstView === 'top') this.topView();
+      else this.resetView();
     }
   }
 

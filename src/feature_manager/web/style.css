@@ -416,12 +416,14 @@ a.btn { text-decoration: none; display: inline-block; }
   box-shadow: var(--shadow);
   font-size: 13.5px;
 }
-.traj-head { display: flex; align-items: center; gap: 10px; }
+.traj-head { display: flex; align-items: baseline; gap: 10px; }
 .traj-head h2 { font-size: 14px; font-weight: 650; }
-.traj-saved { flex: 1; min-width: 0; max-width: none; font-size: 13px; padding: 4px 6px; }
-.traj-delete:disabled { color: var(--muted); opacity: .5; cursor: default; }
+.traj-summary { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.traj-more { display: none; } /* phones only, see below */
+.traj-details { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+.traj-saved { flex: 1; min-width: 0; max-width: none; font-size: 13px; }
 .traj-hint, .traj-summary { color: var(--muted); font-size: 12.5px; }
-.traj-summary:empty, .traj-message:empty, .traj-list:empty { display: none; }
+.traj-message:empty, .traj-list:empty { display: none; }
 .traj-list {
   list-style: none;
   margin: 0;
@@ -485,7 +487,13 @@ a.btn { text-decoration: none; display: inline-block; }
 
 @media (max-width: 640px) {
   .map-dock { right: 12px; max-width: none; align-items: stretch; }
-  .traj-panel { width: auto; max-height: 45vh; }
+  /* While planning, the map needs the room: a compact planner, details on demand, and the goal
+     bar only when it offers Stop */
+  .traj-panel { width: auto; max-height: 55vh; gap: 8px; padding: 10px 12px; }
+  .traj-more { display: inline; }
+  .traj-panel[data-expanded="false"] .traj-details { display: none; }
+  .map-view[data-planning="true"] .goal-bar:not(:has(.goal-stop:not([hidden]))) { display: none; }
+  .map-view[data-planning="true"] .goal-bar :is(.goal-status, .goal-start, .traj-open) { display: none; }
   .goal-status { flex-basis: 100%; }
   .goal-actions { flex: 1; flex-wrap: nowrap; }
   .goal-actions .btn { flex: 1; white-space: nowrap; }

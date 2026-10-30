@@ -83,21 +83,26 @@
       <section class="traj-panel" aria-label="Trajectory planner" hidden>
         <header class="traj-head">
           <h2>Trajectory</h2>
-          <select class="traj-saved" aria-label="Saved trajectories"></select>
-          <button type="button" class="link traj-delete">Delete</button>
+          <span class="traj-summary"></span>
+          <button type="button" class="link traj-more" aria-expanded="false">Details</button>
           <button type="button" class="link traj-close">Close</button>
         </header>
         <p class="traj-hint"></p>
-        <ol class="traj-list"></ol>
-        <p class="traj-summary"></p>
-        <div class="traj-options">
-          <label><input type="checkbox" class="traj-closed"> Closed loop, back to waypoint 1</label>
-          <label><input type="checkbox" class="traj-repeat"> Repeat until stopped</label>
-        </div>
-        <div class="traj-row">
-          <input type="text" class="traj-name" placeholder="Name" maxlength="60" spellcheck="false"
-            aria-label="Trajectory name">
-          <button type="button" class="btn traj-save">Save</button>
+        <div class="traj-details">
+          <div class="traj-row">
+            <select class="traj-saved" aria-label="Saved trajectories"></select>
+            <button type="button" class="btn traj-delete">Delete</button>
+          </div>
+          <ol class="traj-list"></ol>
+          <div class="traj-options">
+            <label><input type="checkbox" class="traj-closed"> Closed loop, back to waypoint 1</label>
+            <label><input type="checkbox" class="traj-repeat"> Repeat until stopped</label>
+          </div>
+          <div class="traj-row">
+            <input type="text" class="traj-name" placeholder="Name" maxlength="60" spellcheck="false"
+              aria-label="Trajectory name">
+            <button type="button" class="btn traj-save">Save</button>
+          </div>
         </div>
         <p class="traj-message" aria-live="polite"></p>
         <div class="traj-row">

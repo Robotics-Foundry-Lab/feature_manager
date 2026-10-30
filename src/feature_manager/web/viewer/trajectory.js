@@ -10,6 +10,7 @@ import { ACTIVE, groundPoint, post, replayPress, request } from './goal.js';
 
 const DRAG_PX = 12;       // shorter moves are taps
 const TAP_MS = 500;       // longer presses turn the camera instead of adding a waypoint
+const PHONE = '(max-width: 640px)';
 const HIT_PX = { mouse: 16, pen: 20, touch: 28 };
 const MIN_WAYPOINTS = 2;
 const MIN_LOOP = 3;
@@ -146,7 +147,7 @@ export class TrajectoryTool {
     this.viewer = viewer;
     const $ = (sel) => viewer.root.querySelector(sel);
     this.el = {
-      open: $('.traj-open'), panel: $('.traj-panel'), close: $('.traj-close'), saved: $('.traj-saved'),
+      open: $('.traj-open'), panel: $('.traj-panel'), close: $('.traj-close'), more: $('.traj-more'), saved: $('.traj-saved'),
       remove: $('.traj-delete'), hint: $('.traj-hint'), list: $('.traj-list'), summary: $('.traj-summary'),
       closed: $('.traj-closed'), repeat: $('.traj-repeat'), name: $('.traj-name'), save: $('.traj-save'),
       undo: $('.traj-undo'), clear: $('.traj-clear'), drive: $('.traj-drive'), message: $('.traj-message'),
@@ -160,6 +161,7 @@ export class TrajectoryTool {
     this.press = null;         // pointer that may become a tap or a waypoint drag
     this.pointers = new Set(); // pointers down on the map; a second one zooms or pans
     this.busy = false;
+    this.expanded = false;     // phones: list, options and saving are behind "Details"
     this.message = ['', ''];
     this.listPoints = null;    // points the waypoint list shows
 
@@ -191,6 +193,10 @@ export class TrajectoryTool {
     const { el } = this;
     el.open.addEventListener('click', () => (this.editing ? this.close() : this.open()));
     el.close.addEventListener('click', () => this.close());
+    el.more.addEventListener('click', () => {
+      this.expanded = !this.expanded;
+      this.render();
+    });
     el.saved.addEventListener('change', () => this.load(el.saved.value));
     el.remove.addEventListener('click', () => this.deleteSaved());
     el.closed.addEventListener('change', () => this.change({ closed: el.closed.checked }));
@@ -218,6 +224,11 @@ export class TrajectoryTool {
   open() {
     if (this.viewer.goal) this.viewer.goal.setMode('idle');
     this.editing = true;
+    // On a phone the planner covers the lower part of the map; from above, the rest is all floor
+    if (window.matchMedia(PHONE).matches) {
+      this.viewer.firstView = 'top'; // also once the robot shows up in TF
+      this.viewer.topView();
+    }
     this.say('');
     this.render();
     this.loadSaved();
@@ -294,9 +305,11 @@ export class TrajectoryTool {
     }
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     const index = this.hitWaypoint(e);
+    // Event time stamps, not handler run times: a busy main thread (rendering the voxel map on a
+    // phone) can run the handlers seconds late, which turned every tap into a long press
     this.press = {
       pointerId: e.pointerId, pointerType: e.pointerType, startX: e.clientX, startY: e.clientY,
-      time: performance.now(), index, moved: false, last: e, before: this.draft,
+      time: e.timeStamp, index, moved: false, last: e, before: this.draft,
     };
     if (index == null) return; // OrbitControls turns the camera; a short press adds a waypoint
     e.stopPropagation();
@@ -331,8 +344,13 @@ export class TrajectoryTool {
       else this.tapWaypoint(press.index);
       return;
     }
-    if (press.moved || performance.now() - press.time > TAP_MS) return;
-    this.addWaypoint(this.toDraftFrame(groundPoint(this.viewer, e)));
+    if (press.moved || e.timeStamp - press.time > TAP_MS) return;
+    const point = groundPoint(this.viewer, e);
+    if (!point) {
+      this.say('No floor there. Tap closer to the robot, or use Top-down view in Layers.', 'bad');
+      return;
+    }
+    this.addWaypoint(this.toDraftFrame(point));
   }
 
   onPointerCancel(e) {
@@ -515,17 +533,22 @@ export class TrajectoryTool {
     const { el, draft, nav } = this;
     el.open.setAttribute('aria-pressed', String(this.editing));
     el.panel.hidden = !this.editing;
+    this.viewer.root.dataset.planning = this.editing;
     if (!this.editing) return;
+    el.panel.dataset.expanded = this.expanded;
+    el.more.setAttribute('aria-expanded', String(this.expanded));
+    el.more.textContent = this.expanded ? 'Less' : 'Details';
 
     const n = draft.points.length;
     this.renderList();
     el.hint.textContent = n
-      ? 'Tap to add · drag a waypoint to move it · tap waypoint 1 to close the loop'
+      ? 'Tap to add · drag a point to move it · tap 1 to close the loop'
       : 'Tap the map to add waypoints. The robot drives to waypoint 1 first, then through all '
         + 'others without stopping.';
     el.summary.textContent = n
-      ? `${n} waypoint${n === 1 ? '' : 's'} · ${routeLength(draft.points, draft.closed).toFixed(1)} m`
-        + `${draft.closed ? ' per lap' : ''}${draft.dirty && draft.name ? ' · not saved' : ''}`
+      ? `${n} point${n === 1 ? '' : 's'} · ${routeLength(draft.points, draft.closed).toFixed(1)} m`
+        + `${draft.closed ? (draft.repeat ? ' · loop, repeats' : ' · loop') : ''}`
+        + `${draft.dirty && draft.name ? ' · not saved' : ''}`
       : '';
     el.closed.checked = draft.closed;
     el.closed.disabled = n < MIN_LOOP;
