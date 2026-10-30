@@ -10,6 +10,7 @@ import uvicorn
 
 from .config import load_config
 from .controller import FeatureController
+from .trajectory import TrajectoryStore
 from .web import create_app
 
 LOG = logging.getLogger('feature_manager')
@@ -57,6 +58,9 @@ def main(argv=None):
     parser.add_argument('--state-file', type=Path,
                         default=state_home / 'feature_manager' / 'state.json',
                         help='Where the last handled boot id is stored')
+    parser.add_argument('--trajectories-file', type=Path,
+                        help='Where named waypoint trajectories are stored '
+                             '(default: trajectories.json next to the state file)')
     parser.add_argument('--host', default='0.0.0.0')
     parser.add_argument('--port', type=int, default=8080)
     parser.add_argument('--no-autostart', action='store_true',
@@ -78,10 +82,14 @@ def main(argv=None):
     ros = None if args.no_ros else _start_ros(controller)
     nav = ros[1].nav if ros else None
 
+    trajectories = TrajectoryStore(
+        args.trajectories_file or args.state_file.parent / 'trajectories.json')
+    LOG.info('Trajectories in %s', trajectories.path)
+
     LOG.info('Web UI on http://%s:%d', args.host, args.port)
     try:
-        uvicorn.run(create_app(controller, args.web_dir, nav), host=args.host, port=args.port,
-                    log_level='warning')
+        uvicorn.run(create_app(controller, args.web_dir, nav, trajectories), host=args.host,
+                    port=args.port, log_level='warning')
     finally:
         controller.shutdown()
         if ros:

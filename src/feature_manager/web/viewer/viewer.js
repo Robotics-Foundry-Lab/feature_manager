@@ -1,11 +1,13 @@
 // 3D map view: renders nvblox voxel layers, the 2D map, costmaps, paths and the robot from the
 // foxglove_bridge of the Navigation container. Rendering happens in the browser; the robot only
-// streams the topics that are switched on. Navigation goals are set in goal.js.
+// streams the topics that are switched on. Navigation goals are set in goal.js, waypoint
+// trajectories in trajectory.js.
 
 import * as THREE from 'three';
 import { OrbitControls } from '../vendor/OrbitControls.js';
 import { FoxgloveClient } from './foxglove.js';
 import { GoalTool } from './goal.js';
+import { TrajectoryTool } from './trajectory.js';
 import { toFloat32 } from './ros2msg.js';
 
 const SETTINGS_KEY = 'feature-manager.viewer';
@@ -559,6 +561,11 @@ export class MapViewer {
       // The map must still work without goals (e.g. a cached index.html without the goal bar)
       console.error('Navigation goals unavailable:', err);
     }
+    try {
+      this.trajectory = new TrajectoryTool(this);
+    } catch (err) {
+      console.error('Trajectories unavailable:', err);
+    }
     this.client = new FoxgloveClient(this.bridgeUrl());
     this.client.addEventListener('state', () => this.updateOverlay());
     this.client.addEventListener('channels', () => this.syncLayers());
@@ -854,12 +861,14 @@ export class MapViewer {
     }
 
     if (this.goal) this.goal.update(fixed);
+    if (this.trajectory) this.trajectory.update(fixed);
     this.controls.update();
     this.renderer.render(this.scene, this.camera);
   };
 
   setNavigation(nav) {
     if (this.goal) this.goal.setNavigation(nav);
+    if (this.trajectory) this.trajectory.setNavigation(nav);
   }
 
   // ------------------------------------------------------------ lifecycle
@@ -880,6 +889,7 @@ export class MapViewer {
     this.running = false;
     cancelAnimationFrame(this.raf);
     if (this.goal) this.goal.cancelDrag();
+    if (this.trajectory) this.trajectory.cancelPress();
     if (this.client) {
       this.client.close();
       for (const layer of this.layers) layer.topic = null;

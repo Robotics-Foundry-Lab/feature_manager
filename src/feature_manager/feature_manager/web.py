@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 import threading
 import time
+from typing import List
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -14,6 +15,7 @@ from pydantic import BaseModel
 
 from .controller import FeatureController
 from .nav_goal import ACTIVE
+from .trajectory import clean_name, Route, TrajectoryStore
 
 LOG = logging.getLogger('feature_manager.web')
 
@@ -42,7 +44,24 @@ class Goal(BaseModel):
     frame_id: str = 'map'
 
 
-def create_app(controller: FeatureController, web_dir: Path, nav=None) -> FastAPI:
+class Waypoint(BaseModel):
+    x: float
+    y: float
+
+
+class Trajectory(BaseModel):
+    waypoints: List[Waypoint]
+    closed: bool = False
+    repeat: bool = False  # only for closed loops: drive until stopped
+    frame_id: str = 'map'
+    name: str = ''
+
+    def points(self):
+        return [(w.x, w.y) for w in self.waypoints]
+
+
+def create_app(controller: FeatureController, web_dir: Path, nav=None,
+               trajectories: TrajectoryStore = None) -> FastAPI:
     """`nav` is the NavGoalClient of the ROS node, None when running without ROS."""
     app = FastAPI(title='Feature Manager', docs_url='/api/docs', redoc_url=None)
 
@@ -99,6 +118,44 @@ def create_app(controller: FeatureController, web_dir: Path, nav=None) -> FastAP
             raise HTTPException(400, str(exc))
         except RuntimeError as exc:
             raise HTTPException(409, str(exc))
+        return {'ok': True}
+
+    @app.post('/api/navigation/trajectory', status_code=202)
+    def navigation_trajectory(trajectory: Trajectory):
+        try:
+            route = Route(trajectory.points(), trajectory.closed, trajectory.repeat)
+            nav_or_503().send_trajectory(route, trajectory.frame_id, trajectory.name.strip())
+        except ValueError as exc:
+            raise HTTPException(400, str(exc))
+        except RuntimeError as exc:
+            raise HTTPException(409, str(exc))
+        return {'ok': True}
+
+    def store_or_503():
+        if trajectories is None:
+            raise HTTPException(503, 'No trajectory store configured.')
+        return trajectories
+
+    @app.get('/api/trajectories')
+    def list_trajectories():
+        return {'trajectories': store_or_503().list()}
+
+    @app.put('/api/trajectories/{name}')
+    def save_trajectory(name: str, trajectory: Trajectory):
+        try:
+            return store_or_503().save(name, trajectory.points(), trajectory.closed,
+                                       trajectory.repeat, trajectory.frame_id)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc))
+
+    @app.delete('/api/trajectories/{name}')
+    def delete_trajectory(name: str):
+        try:
+            name = clean_name(name)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc))
+        if not store_or_503().delete(name):
+            raise HTTPException(404, f'No trajectory named {name!r}')
         return {'ok': True}
 
     @app.post('/api/navigation/cancel', status_code=202)

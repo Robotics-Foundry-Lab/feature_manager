@@ -1,14 +1,15 @@
 // Navigation goals in the 3D map. After "Set goal", press on the goal position and drag towards
 // the direction the robot should face, with the mouse or one finger; a short tap faces away from
 // the robot. Two fingers, the wheel and the right mouse button keep moving the camera. The
-// feature manager sends the goal to Nav2 (NavigateToPose action, see nav_goal.py).
+// feature manager sends the goal to Nav2 (NavigateToPose action, see nav_goal.py). Waypoint
+// trajectories are planned in trajectory.js; their progress is shown here in the goal bar.
 
 import * as THREE from 'three';
 
 const DRAG_PX = 12;       // shorter drags only place the goal
 const MAX_RANGE = 200;    // ignore ground hits near the horizon
 const GROUND = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
-const ACTIVE = ['sending', 'active', 'sent'];
+export const ACTIVE = ['sending', 'active', 'sent'];
 const TONES = { succeeded: 'ok', aborted: 'bad', rejected: 'bad', failed: 'bad' };
 
 function makeMarker(color) {
@@ -46,16 +47,56 @@ function describeGoal(goal) {
   return `x ${goal.x.toFixed(2)} m, y ${goal.y.toFixed(2)} m, heading ${deg}°`;
 }
 
-async function post(url, body = {}) {
+function describeTrajectory(nav) {
+  const t = nav.trajectory;
+  const fb = nav.feedback;
+  const name = t.name ? `“${t.name}”` : 'Trajectory';
+  const n = t.waypoints.length;
+  const parts = [t.closed && !t.repeat && t.lap > 1
+    ? `${name} · back to waypoint 1` : `${name} · to waypoint ${t.target + 1} of ${n}`];
+  if (t.repeat) parts.push(`lap ${t.lap}`);
+  if (fb && fb.distance_to_waypoint != null) parts.push(`${fb.distance_to_waypoint.toFixed(1)} m`);
+  if (fb && fb.recoveries) parts.push(`${fb.recoveries} recover${fb.recoveries === 1 ? 'y' : 'ies'}`);
+  return parts.join(' · ');
+}
+
+export async function request(method, url, body) {
   const res = await fetch(url, {
-    method: 'POST',
+    method,
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    body: body === undefined ? undefined : JSON.stringify(body),
   });
+  const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const detail = (await res.json().catch(() => ({}))).detail;
+    const detail = data.detail;
     throw new Error(Array.isArray(detail) ? detail.map((d) => d.msg).join('; ') : detail || res.statusText);
   }
+  return data;
+}
+
+export const post = (url, body = {}) => request('POST', url, body);
+
+const raycaster = new THREE.Raycaster();
+
+// Where the pointer event hits the ground (z = 0 of the fixed frame), null near the horizon
+export function groundPoint(viewer, e) {
+  const rect = viewer.renderer.domElement.getBoundingClientRect();
+  const ndc = new THREE.Vector2(
+    ((e.clientX - rect.left) / rect.width) * 2 - 1,
+    -((e.clientY - rect.top) / rect.height) * 2 + 1);
+  raycaster.setFromCamera(ndc, viewer.camera);
+  const point = raycaster.ray.intersectPlane(GROUND, new THREE.Vector3());
+  return point && point.distanceTo(viewer.camera.position) < MAX_RANGE ? point : null;
+}
+
+// A tool kept the first finger from OrbitControls; replay its press before the second one arrives,
+// so the two fingers zoom and pan
+export function replayPress(canvas, first) {
+  canvas.dispatchEvent(new PointerEvent('pointerdown', {
+    pointerId: first.pointerId, pointerType: 'touch', isPrimary: true, bubbles: true,
+    clientX: first.clientX, clientY: first.clientY, screenX: first.screenX, screenY: first.screenY,
+    button: 0, buttons: 1,
+  }));
 }
 
 export class GoalTool {
@@ -64,7 +105,7 @@ export class GoalTool {
     const $ = (sel) => viewer.root.querySelector(sel);
     this.el = {
       bar: $('.goal-bar'), status: $('.goal-status'), start: $('.goal-start'),
-      send: $('.goal-send'), discard: $('.goal-discard'), stop: $('.goal-stop'),
+      send: $('.goal-send'), discard: $('.goal-discard'), stop: $('.goal-stop'), trajectory: $('.traj-open'),
       reset: $('.map-reset'), resetButton: $('.reset-map'), resetInfo: $('.reset-map-info'),
     };
     this.canvas = viewer.renderer.domElement;
@@ -75,7 +116,6 @@ export class GoalTool {
     this.drag = null;       // pointer that places the goal
     this.error = '';
     this.busy = false;
-    this.raycaster = new THREE.Raycaster();
 
     this.draftMarker = makeMarker(0xf0b350);
     this.goalMarker = makeMarker(0x34c47c);
@@ -104,6 +144,7 @@ export class GoalTool {
   }
 
   setMode(mode) {
+    if (mode !== 'idle' && this.viewer.trajectory) this.viewer.trajectory.close();
     if (mode === 'idle' || mode === 'pick') this.draft = null;
     if (this.drag) this.releaseDrag();
     this.mode = mode;
@@ -115,13 +156,7 @@ export class GoalTool {
   // ------------------------------------------------------------ pointer input
 
   groundPoint(e) {
-    const rect = this.canvas.getBoundingClientRect();
-    const ndc = new THREE.Vector2(
-      ((e.clientX - rect.left) / rect.width) * 2 - 1,
-      -((e.clientY - rect.top) / rect.height) * 2 + 1);
-    this.raycaster.setFromCamera(ndc, this.viewer.camera);
-    const point = this.raycaster.ray.intersectPlane(GROUND, new THREE.Vector3());
-    return point && point.distanceTo(this.viewer.camera.position) < MAX_RANGE ? point : null;
+    return groundPoint(this.viewer, e);
   }
 
   onPointerDown(e) {
@@ -186,17 +221,12 @@ export class GoalTool {
     this.render();
   }
 
-  // OrbitControls never saw the first finger, so replay its press before the second one arrives
   handOver() {
     const first = this.drag.last;
     this.cancelDrag();
     this.handingOver = true;
     try {
-      this.canvas.dispatchEvent(new PointerEvent('pointerdown', {
-        pointerId: first.pointerId, pointerType: 'touch', isPrimary: true, bubbles: true,
-        clientX: first.clientX, clientY: first.clientY, screenX: first.screenX, screenY: first.screenY,
-        button: 0, buttons: 1,
-      }));
+      replayPress(this.canvas, first);
     } finally {
       this.handingOver = false;
     }
@@ -258,7 +288,8 @@ export class GoalTool {
     if (this.mode === 'pick') return ['Press on the goal and drag towards the direction the robot should face.', ''];
     if (this.draft) return [`Goal ${describeGoal(this.draft)}. Drag again to change it.`, 'draft'];
     if (!nav.ready) return ['Nav2 is not running. Start Navigation with Lidar SLAM + Nav2.', ''];
-    if (nav.status === 'sending') return ['Sending goal…', ''];
+    if (nav.status === 'sending') return [nav.trajectory ? 'Sending trajectory…' : 'Sending goal…', ''];
+    if (nav.status === 'active' && nav.trajectory) return [nav.message || describeTrajectory(nav), 'active'];
     if (nav.status === 'active') {
       const fb = nav.feedback;
       if (nav.message || !fb) return [nav.message || 'Driving to the goal…', 'active'];
@@ -278,6 +309,7 @@ export class GoalTool {
     if (!nav) return;
     const picking = this.mode !== 'idle';
     start.hidden = picking;
+    if (this.el.trajectory) this.el.trajectory.hidden = picking;
     start.disabled = !nav.ready;
     send.hidden = !picking;
     send.disabled = !this.draft || this.mode === 'drag' || this.busy || !nav.ready;

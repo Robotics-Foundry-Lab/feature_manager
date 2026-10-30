@@ -79,13 +79,42 @@
         <label class="bridge">Bridge <input class="bridge-url" type="text" spellcheck="false"></label>
       </div>
     </aside>
-    <div class="goal-bar" hidden>
-      <p class="goal-status" aria-live="polite"></p>
-      <div class="goal-actions">
-        <button type="button" class="btn primary goal-start">Set goal</button>
-        <button type="button" class="btn primary goal-send" hidden>Send goal</button>
-        <button type="button" class="btn goal-discard" hidden>Cancel</button>
-        <button type="button" class="btn danger goal-stop" hidden>Stop</button>
+    <div class="map-dock">
+      <section class="traj-panel" aria-label="Trajectory planner" hidden>
+        <header class="traj-head">
+          <h2>Trajectory</h2>
+          <select class="traj-saved" aria-label="Saved trajectories"></select>
+          <button type="button" class="link traj-delete">Delete</button>
+          <button type="button" class="link traj-close">Close</button>
+        </header>
+        <p class="traj-hint"></p>
+        <ol class="traj-list"></ol>
+        <p class="traj-summary"></p>
+        <div class="traj-options">
+          <label><input type="checkbox" class="traj-closed"> Closed loop, back to waypoint 1</label>
+          <label><input type="checkbox" class="traj-repeat"> Repeat until stopped</label>
+        </div>
+        <div class="traj-row">
+          <input type="text" class="traj-name" placeholder="Name" maxlength="60" spellcheck="false"
+            aria-label="Trajectory name">
+          <button type="button" class="btn traj-save">Save</button>
+        </div>
+        <p class="traj-message" aria-live="polite"></p>
+        <div class="traj-row">
+          <button type="button" class="btn traj-undo">Undo</button>
+          <button type="button" class="btn traj-clear">Clear</button>
+          <button type="button" class="btn primary traj-drive">Drive</button>
+        </div>
+      </section>
+      <div class="goal-bar" hidden>
+        <p class="goal-status" aria-live="polite"></p>
+        <div class="goal-actions">
+          <button type="button" class="btn primary goal-start">Set goal</button>
+          <button type="button" class="btn traj-open" aria-pressed="false">Trajectory</button>
+          <button type="button" class="btn primary goal-send" hidden>Send goal</button>
+          <button type="button" class="btn goal-discard" hidden>Cancel</button>
+          <button type="button" class="btn danger goal-stop" hidden>Stop</button>
+        </div>
       </div>
     </div>
   </section>
