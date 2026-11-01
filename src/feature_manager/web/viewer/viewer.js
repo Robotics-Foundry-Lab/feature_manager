@@ -5,6 +5,7 @@
 
 import * as THREE from 'three';
 import { OrbitControls } from '../vendor/OrbitControls.js';
+import { STLLoader } from '../vendor/STLLoader.js';
 import { FoxgloveClient } from './foxglove.js';
 import { GoalTool } from './goal.js';
 import { TrajectoryTool } from './trajectory.js';
@@ -38,6 +39,8 @@ const LIFETIMES = { 10: '10 s (like Foxglove)', 60: '60 s', 0: 'Forever' };
 const IDENTITY = new THREE.Matrix4();
 const UNIT_SCALE = new THREE.Vector3(1, 1, 1);
 const BOX = new THREE.BoxGeometry(1, 1, 1);
+// CAD model of the robot in base_link, made by tools/compress_robot_model.py
+const ROBOT_MODEL = new URL('../models/roberta.stl', import.meta.url).href;
 
 const stripSlash = (frame) => (frame || '').replace(/^\//, '');
 
@@ -467,6 +470,11 @@ function makeRobot() {
   body.position.z = 0.09;
   const heading = new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 0.2), 0.45, 0xffffff, 0.12, 0.08);
   robot.add(body, heading, new THREE.AxesHelper(0.3));
+  // The box stays if the model is missing
+  new STLLoader().load(ROBOT_MODEL, (geometry) => {
+    robot.remove(body);
+    robot.add(new THREE.Mesh(geometry, new THREE.MeshLambertMaterial({ vertexColors: geometry.hasColors })));
+  }, undefined, (err) => console.warn('Robot model unavailable, showing a box:', err));
   return robot;
 }
 

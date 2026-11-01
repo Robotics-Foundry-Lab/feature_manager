@@ -17,6 +17,7 @@ setup(
         ('share/' + package_name + '/web', [f for f in glob('web/*') if os.path.isfile(f)]),
         ('share/' + package_name + '/web/vendor', glob('web/vendor/*')),
         ('share/' + package_name + '/web/viewer', glob('web/viewer/*')),
+        ('share/' + package_name + '/web/models', glob('web/models/*')),
     ],
     install_requires=['setuptools', 'PyYAML', 'docker', 'fastapi', 'uvicorn'],
     zip_safe=True,

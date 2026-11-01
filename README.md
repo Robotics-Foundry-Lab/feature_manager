@@ -12,6 +12,11 @@ stops and restarts them, with selectable options, from a web UI and over ROS top
   the heading (mouse or one finger; two fingers still zoom/pan). The feature manager sends it to Nav2
   as `NavigateToPose` action on `/navigate_to_pose` and shows distance/ETA; *Stop* cancels all Nav2
   goals. Without `ros-humble-nav2-msgs` in the image the goal goes to `/goal_pose` without progress.
+* **Robot model:** the 3D Map shows the robot as
+  [`web/models/roberta.stl`](src/feature_manager/web/models/roberta.stl) (2.6 MB, in base_link),
+  made from the 159 MB CAD export with
+  [`tools/compress_robot_model.py`](src/feature_manager/tools/compress_robot_model.py). After a CAD
+  change, export it again as colored binary STL and rerun the script.
 * **Trajectories:** in the 3D Map tab, press *Trajectory*, tap the map to add waypoints, drag one to
   move it, and tap waypoint 1 (or tick *Closed loop*) to close the loop; a closed loop can *Repeat
   until stopped*. *Drive* sends the robot to waypoint 1 and then through all others without
