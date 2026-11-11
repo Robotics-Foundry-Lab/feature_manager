@@ -344,6 +344,9 @@ a.btn { text-decoration: none; display: inline-block; }
 .map-settings select { max-width: 60%; font-size: 13px; }
 .map-settings label.check { justify-content: flex-start; color: var(--text); cursor: pointer; }
 .map-settings label.check input { margin: 0; accent-color: var(--accent); }
+.map-settings label.range { flex-wrap: wrap; }
+.map-settings label.range output { color: var(--text); font-size: 13px; font-variant-numeric: tabular-nums; }
+.map-settings label.range input { flex-basis: 100%; margin: 0; accent-color: var(--accent); }
 .view-buttons { display: flex; gap: 8px; }
 .view-buttons .btn { flex: 1; padding: 6px 10px; font-size: 13px; }
 .map-reset { display: flex; flex-direction: column; gap: 6px; }

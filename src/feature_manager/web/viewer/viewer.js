@@ -35,6 +35,9 @@ const LAYERS = [
 ];
 
 const LIFETIMES = { 10: '10 s (like Foxglove)', 60: '60 s', 0: 'Forever' };
+// Range of the voxel cut height slider in m; the top position means no cut
+const CUT_MIN = -0.5;
+const CUT_MAX = 4;
 
 const IDENTITY = new THREE.Matrix4();
 const UNIT_SCALE = new THREE.Vector3(1, 1, 1);
@@ -157,6 +160,7 @@ class VoxelLayer extends FramedLayer {
     this.voxelSize = 0.05;
     this.mode = 'cubes';
     this.lifetimeMs = 10000;
+    this.maxZ = Infinity; // voxels with a center above this height (layer frame) are hidden
     this.dirty = false;
     this.count = 0;
     this.capacity = 0;
@@ -243,7 +247,6 @@ class VoxelLayer extends FramedLayer {
     this.dirty = false;
     let n = 0;
     for (const b of this.blocks.values()) n += b.centers.length / 3;
-    this.count = n;
     this.ensureCapacity(n);
     const s = this.voxelSize;
     let positions;
@@ -257,9 +260,11 @@ class VoxelLayer extends FramedLayer {
       colors = this.object.geometry.attributes.color.array;
       this.pointMaterial.size = s;
     }
+    const maxZ = this.maxZ;
     let i = 0;
     for (const { centers, colors: rgba } of this.blocks.values()) {
-      for (let j = 0, k = 0; j < centers.length; j += 3, k += 4, i++) {
+      for (let j = 0, k = 0; j < centers.length; j += 3, k += 4) {
+        if (centers[j + 2] > maxZ) continue;
         if (matrices) {
           const o = i * 16;
           matrices[o] = s; matrices[o + 5] = s; matrices[o + 10] = s; matrices[o + 15] = 1;
@@ -271,8 +276,11 @@ class VoxelLayer extends FramedLayer {
         colors[i * 3] = has ? toLinear(rgba[k]) : 0.5;
         colors[i * 3 + 1] = has ? toLinear(rgba[k + 1]) : 0.5;
         colors[i * 3 + 2] = has ? toLinear(rgba[k + 2]) : 0.5;
+        i++;
       }
     }
+    n = i;
+    this.count = n;
     if (matrices) {
       this.object.count = n;
       this.object.instanceMatrix.needsUpdate = true;
@@ -504,7 +512,7 @@ export class MapViewer {
     this.root = root;
     this.options = options;
     this.settings = {
-      enabled: {}, topics: {}, mode: 'cubes', lifetime: 10, follow: false, panelOpen: true,
+      enabled: {}, topics: {}, mode: 'cubes', lifetime: 10, cutHeight: null, follow: false, panelOpen: true,
       ...loadSettings(),
     };
     this.tf = new TfBuffer();
@@ -522,6 +530,7 @@ export class MapViewer {
       canvas: $('.map-canvas'), overlay: $('.map-overlay'), overlayTitle: $('.map-overlay strong'),
       overlayText: $('.map-overlay p'), panel: $('.map-panel'), layerList: $('.layer-list'),
       fixedFrame: $('.fixed-frame'), mode: $('.render-mode'), lifetime: $('.lifetime'),
+      cutHeight: $('.cut-height'), cutHeightValue: $('.cut-height-value'),
       follow: $('.follow'), stats: $('.map-stats'), bridgeState: $('.bridge-state'),
       bridgeUrl: $('.bridge-url'), panelToggle: $('.panel-toggle'),
     };
@@ -648,6 +657,23 @@ export class MapViewer {
       applyLifetime();
     });
     applyLifetime();
+
+    // Cuts off the voxel map above a height, e.g. to look in from above without the roof
+    Object.assign(this.el.cutHeight, { min: CUT_MIN, max: CUT_MAX, step: 0.05 });
+    this.el.cutHeight.value = s.cutHeight ?? CUT_MAX;
+    const applyCutHeight = () => {
+      const off = s.cutHeight == null;
+      this.voxels.maxZ = off ? Infinity : s.cutHeight;
+      this.voxels.dirty = true;
+      this.el.cutHeightValue.textContent = off ? 'Off' : `${s.cutHeight.toFixed(2)} m`;
+    };
+    this.el.cutHeight.addEventListener('input', () => {
+      const value = Number(this.el.cutHeight.value);
+      s.cutHeight = value >= CUT_MAX ? null : value;
+      applyCutHeight();
+    });
+    this.el.cutHeight.addEventListener('change', () => saveSettings(s));
+    applyCutHeight();
 
     this.el.follow.checked = s.follow;
     this.el.follow.addEventListener('change', () => {
