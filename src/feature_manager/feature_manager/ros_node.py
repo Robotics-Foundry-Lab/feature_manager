@@ -6,6 +6,7 @@ from rclpy.node import Node
 from std_msgs.msg import String
 
 from .controller import FeatureController
+from .detection import DetectionView
 from .nav_goal import NavGoalClient
 
 
@@ -43,6 +44,8 @@ class FeatureManagerNode(Node):
         self.get_logger().info('Listening for commands on /feature_manager/cmd')
         # Navigation goals from the 3D map of the web UI
         self.nav = NavGoalClient(self)
+        # Live image and NanoOWL query of the "Detection" tab
+        self.detection = DetectionView(self)
 
     def publish_status(self):
         snapshot = self.controller.snapshot()

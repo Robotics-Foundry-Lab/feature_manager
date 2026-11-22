@@ -24,6 +24,12 @@ stops and restarts them, with selectable options, from a web UI and over ROS top
   [`trajectory.py`](src/feature_manager/feature_manager/trajectory.py)). Named trajectories are
   stored on the robot in `.state/trajectories.json`. Their coordinates belong to the current map:
   after *Reset 2D map* they point somewhere else.
+* **Detection:** the Detection tab shows the annotated image of Object Detection live (MJPEG from
+  `/nanoowl_processed_image/compressed` or `/yolov8_processed_image/compressed`, only while the tab
+  is open, ~1 MB/s). With Detector *nanoowl* it has a text field for the query: it is sent on
+  `/nanoowl/query`, the node confirms it on `/nanoowl/active_query`, and the feature manager sends
+  it again whenever NanoOWL restarts (which otherwise falls back to `NANOOWL_QUERY`). See
+  [`detection.py`](src/feature_manager/feature_manager/detection.py).
 
 Start it with `cd .devcontainer && docker compose up -d --build`. The container rebuilds the package on
 every start and reads the config and web UI from the source tree, so edits only need

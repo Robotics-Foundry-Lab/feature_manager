@@ -37,6 +37,18 @@ class UncachedStaticFiles(StaticFiles):
         return response
 
 
+MJPEG_BOUNDARY = 'frame'
+MJPEG_POLL_S = 0.03
+
+
+class Query(BaseModel):
+    query: str
+
+
+class Threshold(BaseModel):
+    threshold: float
+
+
 class Goal(BaseModel):
     x: float
     y: float
@@ -61,8 +73,11 @@ class Trajectory(BaseModel):
 
 
 def create_app(controller: FeatureController, web_dir: Path, nav=None,
-               trajectories: TrajectoryStore = None) -> FastAPI:
-    """`nav` is the NavGoalClient of the ROS node, None when running without ROS."""
+               trajectories: TrajectoryStore = None, detection=None) -> FastAPI:
+    """`nav` / `detection` are the NavGoalClient / DetectionView of the ROS node.
+
+    Both are None when running without ROS.
+    """
     app = FastAPI(title='Feature Manager', docs_url='/api/docs', redoc_url=None)
 
     def feature_or_404(feature_id: str):
@@ -186,6 +201,49 @@ def create_app(controller: FeatureController, web_dir: Path, nav=None,
             nav.clear_costmaps()
             threading.Timer(5.0, nav.clear_costmaps).start()
         return {'ok': True}
+
+    def detection_or_503():
+        if detection is None:
+            raise HTTPException(503, 'The feature manager runs without ROS and shows no images.')
+        return detection
+
+    @app.get('/api/detection')
+    def detection_state():
+        return detection_or_503().snapshot()
+
+    @app.post('/api/detection/query')
+    def detection_query(query: Query):
+        try:
+            return {'ok': True, 'query': detection_or_503().set_query(query.query)}
+        except ValueError as exc:
+            raise HTTPException(400, str(exc))
+
+    @app.post('/api/detection/threshold')
+    def detection_threshold(threshold: Threshold):
+        try:
+            return {'ok': True,
+                    'threshold': detection_or_503().set_threshold(threshold.threshold)}
+        except ValueError as exc:
+            raise HTTPException(400, str(exc))
+
+    @app.get('/api/detection/stream')
+    async def detection_stream(request: Request):
+        """Newest annotated frame as MJPEG, for an <img> tag. Sends only frames it has not sent."""
+        view = detection_or_503()
+
+        async def stream():
+            sent = None
+            while not await request.is_disconnected():
+                frame, seq = view.latest()
+                if frame is None or seq == sent:
+                    await asyncio.sleep(MJPEG_POLL_S)
+                    continue
+                sent = seq
+                yield (f'--{MJPEG_BOUNDARY}\r\nContent-Type: image/jpeg\r\n'
+                       f'Content-Length: {len(frame)}\r\n\r\n').encode() + frame + b'\r\n'
+        return StreamingResponse(
+            stream(), media_type=f'multipart/x-mixed-replace; boundary={MJPEG_BOUNDARY}',
+            headers=SSE_HEADERS)
 
     @app.get('/api/events')
     async def events(request: Request):

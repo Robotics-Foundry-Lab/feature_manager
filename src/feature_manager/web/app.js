@@ -17,6 +17,9 @@ const state = {
 };
 
 let viewer = null;       // MapViewer, loaded on first visit of the 3D tab
+let detection = null;    // DetectionView, loaded on first visit of the Detection tab
+const DETECTION_FEATURE = 'object_detection';
+const TABS = ['features', 'map', 'detection'];
 
 const $ = (root, sel) => root.querySelector(sel);
 
@@ -57,6 +60,11 @@ function baseline(feature) {
 
 function currentOptions(feature) {
   return { ...baseline(feature), ...(state.drafts[feature.id] || {}) };
+}
+
+// visible_if in features.yml: e.g. the YOLOv8 model only while Detector is yolov8
+function optionVisible(opt, options) {
+  return Object.entries(opt.visible_if || {}).every(([key, values]) => values.includes(options[key]));
 }
 
 function dirtyKeys(feature) {
@@ -218,6 +226,7 @@ function updateCard(feature) {
     }
     input.disabled = !!st.pending;
     wrap.dataset.dirty = dirty.has(opt.key);
+    wrap.hidden = !optionVisible(opt, options);
   }
   if (feature.options.length) $(card.node, '.reset').hidden = dirty.size === 0;
 
@@ -270,6 +279,7 @@ function applySnapshot(snapshot) {
   for (const f of state.features) updateCard(f);
   updateSummary();
   if (viewer && viewer.running) viewer.updateOverlay();
+  if (detection) detection.update();
 }
 
 // ---------------------------------------------------------------- actions
@@ -389,8 +399,27 @@ function connectEvents() {
 
 // ---------------------------------------------------------------- tabs
 
+async function routeDetection(tab) {
+  const view = document.getElementById('view-detection');
+  view.hidden = tab !== 'detection';
+  if (tab !== 'detection') {
+    if (detection) detection.stop();
+    return;
+  }
+  if (!detection) {
+    const { DetectionView } = await import('./detection.js');
+    detection = new DetectionView(view, {
+      featureId: DETECTION_FEATURE,
+      feature: () => state.byId[DETECTION_FEATURE],
+      status: () => state.status[DETECTION_FEATURE],
+    });
+  }
+  if (window.location.hash === '#detection') detection.start();
+}
+
 async function route() {
-  const tab = window.location.hash === '#map' ? 'map' : 'features';
+  const hashTab = window.location.hash.slice(1);
+  const tab = TABS.includes(hashTab) ? hashTab : 'features';
   document.body.dataset.tab = tab;
   document.getElementById('features').hidden = tab !== 'features';
   const mapView = document.getElementById('view-map');
@@ -398,6 +427,7 @@ async function route() {
   for (const link of document.querySelectorAll('[data-tab]')) {
     link.setAttribute('aria-selected', String(link.dataset.tab === tab));
   }
+  routeDetection(tab).catch((err) => console.error(err));
   if (tab !== 'map') {
     if (viewer) viewer.stop();
     return;

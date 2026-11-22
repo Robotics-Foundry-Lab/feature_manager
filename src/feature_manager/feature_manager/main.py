@@ -81,6 +81,7 @@ def main(argv=None):
 
     ros = None if args.no_ros else _start_ros(controller)
     nav = ros[1].nav if ros else None
+    detection = ros[1].detection if ros else None
 
     trajectories = TrajectoryStore(
         args.trajectories_file or args.state_file.parent / 'trajectories.json')
@@ -88,8 +89,8 @@ def main(argv=None):
 
     LOG.info('Web UI on http://%s:%d', args.host, args.port)
     try:
-        uvicorn.run(create_app(controller, args.web_dir, nav, trajectories), host=args.host,
-                    port=args.port, log_level='warning')
+        uvicorn.run(create_app(controller, args.web_dir, nav, trajectories, detection),
+                    host=args.host, port=args.port, log_level='warning')
     finally:
         controller.shutdown()
         if ros:

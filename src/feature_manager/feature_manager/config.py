@@ -34,6 +34,8 @@ class Option:
     default: Any
     description: str = ''
     choices: List[Choice] = field(default_factory=list)
+    # Show the option only while other options have one of these values: {key: [values]}
+    visible_if: Dict[str, List[Any]] = field(default_factory=dict)
 
     def normalize(self, value: Any) -> Any:
         """Convert a value from the web/ROS/container env into the option's native type."""
@@ -101,6 +103,7 @@ class Feature:
                 'default': o.default,
                 'description': o.description,
                 'choices': [c.__dict__ for c in o.choices],
+                'visible_if': o.visible_if,
             } for o in self.options],
         }
 
@@ -136,7 +139,19 @@ def _parse_option(key: str, raw: Dict[str, Any]) -> Option:
                  choices=choices)
     default = raw.get('default', False if opt_type == 'bool' else choices[0].value)
     opt.default = opt.normalize(default)
+    for other, values in (raw.get('visible_if') or {}).items():
+        opt.visible_if[str(other)] = values if isinstance(values, list) else [values]
     return opt
+
+
+def _check_visible_if(fid: str, options: List[Option]) -> List[Option]:
+    by_key = {o.key: o for o in options}
+    for opt in options:
+        for other, values in opt.visible_if.items():
+            if other not in by_key or other == opt.key:
+                raise ValueError(f'{fid}.{opt.key}: visible_if names unknown option {other!r}')
+            opt.visible_if[other] = [by_key[other].normalize(v) for v in values]
+    return options
 
 
 def load_config(path: Path) -> Config:
@@ -161,7 +176,8 @@ def load_config(path: Path) -> Config:
             compose_dir=workspace_root / folder / info.get('compose_dir', '.devcontainer'),
             autostart=bool(info.get('autostart', False)),
             requires=list(info.get('requires') or []),
-            options=[_parse_option(k, v or {}) for k, v in (info.get('options') or {}).items()],
+            options=_check_visible_if(fid, [_parse_option(k, v or {})
+                                            for k, v in (info.get('options') or {}).items()]),
         )
     return Config(workspace_root=workspace_root, features=features,
                   viewer=dict(raw.get('viewer') or {}))

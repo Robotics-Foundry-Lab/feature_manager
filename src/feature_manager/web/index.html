@@ -17,6 +17,7 @@
     <nav class="tabs" role="tablist">
       <a href="#features" role="tab" data-tab="features">Features</a>
       <a href="#map" role="tab" data-tab="map">3D Map</a>
+      <a href="#detection" role="tab" data-tab="detection">Detection</a>
     </nav>
     <div id="connection" class="connection" data-state="connecting">
       <span class="dot"></span><span class="label">connecting</span>
@@ -124,6 +125,51 @@
           <button type="button" class="btn danger goal-stop" hidden>Stop</button>
         </div>
       </div>
+    </div>
+  </section>
+
+  <section id="view-detection" class="det-view" hidden>
+    <div class="det-layout">
+      <div class="det-stage">
+        <img class="det-image" alt="Camera image with the detected objects" hidden>
+        <span class="det-badge" hidden></span>
+        <div class="det-empty" hidden>
+          <div class="map-overlay-card">
+            <strong></strong>
+            <p></p>
+            <a class="btn primary" href="#features">Open Features</a>
+          </div>
+        </div>
+      </div>
+      <aside class="card det-panel">
+        <header class="det-head">
+          <h2>Detection</h2>
+          <span class="det-meta"></span>
+        </header>
+        <p class="det-info"></p>
+        <form class="det-query" autocomplete="off" hidden>
+          <label for="det-query-input" class="option-label">What should NanoOWL find?</label>
+          <input id="det-query-input" type="text" maxlength="500" spellcheck="false"
+            placeholder="a person, a backpack, an open door">
+          <p class="option-desc">Comma-separated short descriptions like "a red chair". Labels
+            without "a"/"an" get one added, the model needs it. Applied live, no restart.</p>
+          <div class="det-row">
+            <button type="submit" class="btn primary">Detect</button>
+            <button type="button" class="btn det-revert" hidden>Undo edit</button>
+          </div>
+          <p class="det-query-state" aria-live="polite"></p>
+        </form>
+        <div class="det-threshold" hidden>
+          <div class="option-row">
+            <label for="det-threshold-input" class="option-label">Minimum score</label>
+            <output class="det-threshold-value" for="det-threshold-input"></output>
+          </div>
+          <input id="det-threshold-input" type="range" min="0.05" max="0.6" step="0.01">
+          <p class="option-desc">Raise it when boxes flicker or wrong things are found, lower it
+            when objects are missed. Applied live.</p>
+          <p class="det-threshold-state" aria-live="polite"></p>
+        </div>
+      </aside>
     </div>
   </section>
 

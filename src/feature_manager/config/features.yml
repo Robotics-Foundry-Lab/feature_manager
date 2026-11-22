@@ -10,6 +10,8 @@
 #               hand them to the launch file.
 #     type bool:   on/off switch, passed as true/false
 #     type choice: dropdown; a choice can carry `warn_if_running: [feature, ...]`
+#     visible_if:  {OTHER_KEY: value or [values]} shows the option only while OTHER_KEY has one
+#                  of them (the value is still passed to compose when hidden)
 
 workspace_root: ${WORKSPACE_ROOT:-/home/labor/workspaces/ros_ws}
 
@@ -102,15 +104,28 @@ features:
   object_detection:
     display_name: Object Detection
     description: >
-      YOLOv8 object detection accelerated by TensorRT, with the annotated image on
-      /yolov8_processed_image.
+      Object detection accelerated by TensorRT, results on /detections_output. YOLOv8 draws into
+      /yolov8_processed_image, NanoOWL into /nanoowl_processed_image.
     folder: object_detection
     container: object_detection
     options:
+      DETECTOR:
+        label: Detector
+        type: choice
+        default: yolov8
+        description: Which network detects the objects.
+        choices:
+          yolov8: YOLOv8 - fast, fixed set of 80 COCO classes.
+          nanoowl: >
+            NanoOWL - open vocabulary, detects whatever the text query names (default "a person,
+            a dog, a potted plant", change it at runtime on /nanoowl/query). Slower than YOLOv8 and
+            needs much more GPU memory. The first start builds the TensorRT engine, which needs
+            about 3.5 GB of free memory: stop Navigation for it.
       YOLO_MODEL:
-        label: Model
+        label: YOLOv8 model
         type: choice
         default: yolov8n
+        visible_if: {DETECTOR: yolov8}
         description: Bigger models detect more reliably but need more GPU time per image.
         choices:
           yolov8n: Nano - fastest, least accurate. Best when the GPU is shared with NVBLOX and VSLAM.
@@ -135,7 +150,10 @@ features:
         label: Visualization
         type: choice
         default: sparse
-        description: Which detections are drawn into /yolov8_processed_image.
+        visible_if: {DETECTOR: yolov8}
+        description: >
+          Which detections are drawn into the annotated image. NanoOWL always draws all query
+          labels.
         choices:
           sparse: Only person, dog and potted plant.
           full: All 80 COCO classes.
